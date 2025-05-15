@@ -1,3 +1,6 @@
+sudo apt update
+sudo apt install build-essential libx11-dev libxext-dev libxrender-dev libpng-dev libjpeg-dev libtiff-dev zlib1g-dev libfreetype6-dev libfontconfig1-dev libssl-dev liblua5.3-dev libglib2.0-dev libfribidi-dev libharfbuzz-dev libwebp-dev libgif-dev libxinerama-dev libxcursor-dev libxcomposite-dev libxdamage-dev libxrandr-dev libxss-dev libxfixes-dev libxkbcommon-dev libxkbcommon-x11-dev libdbus-1-dev libpulse-dev libsndfile1-dev libsystemd-dev libinput-dev libudev-dev libpam0g-dev libscim-dev libibus-1.0-dev
+
 #include <Elementary.h>
 #include <Ecore.h>
 #include <Ecore_Evas.h>
