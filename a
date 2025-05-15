@@ -1,7 +1,6 @@
 #include <Elementary.h>
 #include <Ecore.h>
 #include <Ecore_Evas.h>
-#include <Ecore_Exe.h>
 #include <time.h>
 #include <string.h>
 #include <stdio.h>
@@ -245,19 +244,19 @@ static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) 
 static void shutdown_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System shutdown requested\n");
     _hide_popup_actual();
-    ecore_exe_run("shutdown -h now", NULL);
+    system("shutdown -h now");
 }
 
 static void sleep_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System sleep requested\n");
     _hide_popup_actual();
-    ecore_exe_run("systemctl suspend", NULL);
+    system("systemctl suspend");
 }
 
 static void restart_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System restart requested\n");
     _hide_popup_actual();
-    ecore_exe_run("reboot", NULL);
+    system("reboot");
 }
 
 static Eina_Bool update_time_label(void *data) {
