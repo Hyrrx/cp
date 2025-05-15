@@ -1,1 +1,114 @@
-gcc desktop.c -o desktop `pkg-config --cflags --libs elementary`
+#include <Elementary.h>
+#include <Ecore.h>
+#include <Ecore_Evas.h>
+#include <time.h>
+
+static Evas_Object *clock_label;
+
+static void update_clock(void *data, Ecore_Timer *timer) {
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    char buffer[64];
+    strftime(buffer, sizeof(buffer), "%b %d %H:%M", tm_info);  // May 15 21:32 formatı
+    elm_object_text_set(clock_label, buffer);
+}
+
+static void create_rounded_container(Evas_Object *parent, Evas_Object **container_out) {
+    // Basit rounded container için bir bg ve kutu
+    Evas_Object *bg = evas_object_rectangle_add(evas_object_evas_get(parent));
+    evas_object_color_set(bg, 50, 50, 50, 200); // koyu gri, saydam (alpha ~80%)
+    evas_object_show(bg);
+
+    // Yuvarlak kenar için clipper kullanabiliriz (daha ileri)
+    evas_object_move(bg, 0, 0);
+    evas_object_resize(bg, 150, 30);
+
+    *container_out = bg;
+}
+
+EAPI_MAIN int elm_main(int argc, char **argv) {
+    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_MAIN);
+
+    Evas_Object *win = elm_win_util_standard_add("desktop", "Desktop");
+    elm_win_fullscreen_set(win, EINA_TRUE);
+    evas_object_show(win);
+
+    // Beyaz arka plan
+    Evas_Object *bg = evas_object_rectangle_add(evas_object_evas_get(win));
+    evas_object_color_set(bg, 255, 255, 255, 255);
+    evas_object_resize(bg, 1920, 1080);
+    evas_object_show(bg);
+
+    // Üst panel kutusu
+    Evas_Object *panel = elm_box_add(win);
+    elm_box_horizontal_set(panel, EINA_TRUE);
+    evas_object_size_hint_weight_set(panel, EVAS_HINT_EXPAND, 0.0);
+    evas_object_size_hint_align_set(panel, EVAS_HINT_FILL, 0.0);
+    evas_object_resize(panel, 1920, 40);
+    evas_object_move(panel, 0, 0);
+    evas_object_show(panel);
+
+    // Panel arkaplanı: gri ama alfa 0 (tam saydam)
+    Evas_Object *panel_bg = evas_object_rectangle_add(evas_object_evas_get(win));
+    evas_object_color_set(panel_bg, 68, 68, 68, 0); // rgb(68,68,68) gri + alpha 0 (saydam)
+    evas_object_move(panel_bg, 0, 0);
+    evas_object_resize(panel_bg, 1920, 40);
+    evas_object_show(panel_bg);
+
+    // Left container (boş, ileride menü vb için)
+    Evas_Object *left_box = elm_box_add(panel);
+    evas_object_size_hint_weight_set(left_box, EVAS_HINT_EXPAND, 0.0);
+    evas_object_size_hint_align_set(left_box, EVAS_HINT_FILL, 0.0);
+    evas_object_show(left_box);
+    elm_box_pack_end(panel, left_box);
+
+    // Center clock container
+    Evas_Object *center_box = elm_box_add(panel);
+    evas_object_size_hint_weight_set(center_box, 0.0, 0.0);
+    evas_object_size_hint_align_set(center_box, 0.5, 0.5);
+    evas_object_show(center_box);
+    elm_box_pack_end(panel, center_box);
+
+    // Saat label
+    clock_label = elm_label_add(center_box);
+    evas_object_size_hint_weight_set(clock_label, 0.0, 0.0);
+    evas_object_size_hint_align_set(clock_label, 0.5, 0.5);
+    elm_object_text_set(clock_label, "May 15 21:32");
+    evas_object_show(clock_label);
+    elm_box_pack_end(center_box, clock_label);
+
+    // Right container (SysInfo + Icons + Shutdown button)
+    Evas_Object *right_box = elm_box_add(panel);
+    evas_object_size_hint_weight_set(right_box, EVAS_HINT_EXPAND, 0.0);
+    evas_object_size_hint_align_set(right_box, EVAS_HINT_FILL, 0.0);
+    evas_object_show(right_box);
+    elm_box_pack_end(panel, right_box);
+
+    // SysInfo label (şimdilik statik)
+    Evas_Object *sysinfo_label = elm_label_add(right_box);
+    elm_object_text_set(sysinfo_label, "SysInfo");
+    evas_object_show(sysinfo_label);
+    elm_box_pack_end(right_box, sysinfo_label);
+
+    // Icons container (şimdilik boş kutu)
+    Evas_Object *icons_box = elm_box_add(right_box);
+    elm_box_horizontal_set(icons_box, EINA_TRUE);
+    evas_object_size_hint_weight_set(icons_box, 0.0, 0.0);
+    evas_object_size_hint_align_set(icons_box, 0.0, 0.5);
+    evas_object_show(icons_box);
+    elm_box_pack_end(right_box, icons_box);
+
+    // Shutdown button (label olarak)
+    Evas_Object *shutdown_label = elm_label_add(right_box);
+    elm_object_text_set(shutdown_label, "[⏻]");
+    evas_object_show(shutdown_label);
+    elm_box_pack_end(right_box, shutdown_label);
+
+    // Saat güncelleme timer
+    ecore_timer_add(1.0, (Ecore_Task_Cb)update_clock, NULL);
+
+    elm_run();
+    elm_shutdown();
+    return 0;
+}
+ELM_MAIN()
