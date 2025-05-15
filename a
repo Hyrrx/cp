@@ -1,39 +1,4 @@
-sudo apt update && sudo apt install \
-  build-essential \
-  libelementary-dev \
-  libecore-dev \
-  libevas-dev \
-  libeina-dev \
-  libefl-dev \
-  libedje-dev \
-  libethumb-dev \
-  libeet-dev \
-  libeio-dev \
-  libemile-dev \
-  libelput-dev \
-  libecore-evas-dev \
-  libecore-input-dev \
-  libecore-file-dev \
-  libx11-dev \
-  libxcb1-dev \
-  libxcb-shape0-dev \
-  libxcb-keysyms1-dev \
-  libxcb-xfixes0-dev \
-  libjpeg-dev \
-  libpng-dev \
-  libtiff-dev \
-  libgif-dev \
-  libraw-dev \
-  libspectre-dev \
-  libpoppler-cpp-dev \
-  libopenjp2-7-dev \
-  libcurl4-openssl-dev \
-  libssl-dev \
-  libglib2.0-dev \
-  libdbus-1-dev \
-  libpulse-dev \
-  libasound2-dev \
-  pkg-config
+sudo apt install build-essential pkg-config libelementary-dev librsvg2-dev libecore-dev libevas-dev libeina-dev
 
 #include <Elementary.h>
 #include <Ecore.h>
