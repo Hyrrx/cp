@@ -2,192 +2,148 @@
 #include <Ecore.h>
 #include <Ecore_Evas.h>
 #include <time.h>
-#include <string.h>  // strcmp için
+#include <string.h>
 
 static Evas_Object *win;
 static Evas_Object *popup_bg;
 static Evas_Object *popup_box;
 static Eina_Bool popup_visible = EINA_FALSE;
 
-// Forward declarations
 static void show_shutdown_menu(void *data, Evas_Object *obj, void *event_info);
 static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info);
 static void show_sound_settings(void *data, Evas_Object *obj, void *event_info);
-static void hide_popup(void *data, Evas_Object *obj, void *event_info);
+static void hide_popup(void *data, Evas_Object *obj, const Evas_Event_Mouse_Down *event);
 static void shutdown_system(void *data, Evas_Object *obj, void *event_info);
 static void sleep_system(void *data, Evas_Object *obj, void *event_info);
 static void restart_system(void *data, Evas_Object *obj, void *event_info);
 
-// Handle ESC key to exit application - fixed signature to match expected callback type
-static void key_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info) {
+static void key_down_cb(void *data, Evas_Object *obj, void *event_info) {
     Evas_Event_Key_Down *ev = event_info;
     if (strcmp(ev->keyname, "Escape") == 0) {
         if (popup_visible) {
-            hide_popup(NULL, NULL, NULL);
+            hide_popup(NULL, popup_bg, NULL);
         } else {
             elm_exit();
         }
     }
 }
 
-// Create a button with an icon and label
 static Evas_Object *create_icon_button(Evas_Object *parent, const char *icon, const char *label_text, Evas_Smart_Cb callback) {
     Evas_Object *button = elm_button_add(parent);
     evas_object_size_hint_weight_set(button, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_size_hint_align_set(button, EVAS_HINT_FILL, EVAS_HINT_FILL);
-    
     Evas_Object *box = elm_box_add(button);
     evas_object_size_hint_weight_set(box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_size_hint_align_set(box, EVAS_HINT_FILL, EVAS_HINT_FILL);
     elm_box_padding_set(box, 0, 5);
-    
     Evas_Object *ic = elm_icon_add(box);
     elm_icon_standard_set(ic, icon);
     evas_object_size_hint_min_set(ic, 32, 32);
     evas_object_show(ic);
     elm_box_pack_end(box, ic);
-    
     Evas_Object *label = elm_label_add(box);
     elm_object_text_set(label, label_text);
     evas_object_show(label);
     elm_box_pack_end(box, label);
-    
     evas_object_show(box);
     elm_object_content_set(button, box);
-    
     evas_object_smart_callback_add(button, "clicked", callback, NULL);
     evas_object_show(button);
-    
     return button;
 }
 
-// Create and show a popup menu
 static void create_popup(void) {
     if (!popup_bg) {
         popup_bg = evas_object_rectangle_add(evas_object_evas_get(win));
-        evas_object_color_set(popup_bg, 0, 0, 0, 100);  // Semi-transparent background
+        evas_object_color_set(popup_bg, 0, 0, 0, 100);
         evas_object_resize(popup_bg, 1920, 1080);
+        evas_object_show(popup_bg);
         evas_object_event_callback_add(popup_bg, EVAS_CALLBACK_MOUSE_DOWN, hide_popup, NULL);
+    } else {
+        evas_object_show(popup_bg);
     }
-    
     if (!popup_box) {
         popup_box = elm_box_add(win);
         evas_object_size_hint_weight_set(popup_box, 0.0, 0.0);
         evas_object_size_hint_align_set(popup_box, 0.5, 0.5);
-        evas_object_color_set(popup_box, 128, 128, 128, 200);  // Semi-transparent gray
+        evas_object_color_set(popup_box, 128, 128, 128, 200);
         evas_object_resize(popup_box, 300, 400);
-        evas_object_move(popup_box, 1920 - 320, 50);  // Position near top-right
+        evas_object_move(popup_box, 1920 - 320, 50);
+        evas_object_show(popup_box);
+    } else {
+        evas_object_show(popup_box);
     }
+    popup_visible = EINA_TRUE;
 }
 
-// Hide popup menu
-static void hide_popup(void *data, Evas_Object *obj, void *event_info) {
-    if (popup_box) {
-        evas_object_hide(popup_box);
-        evas_object_hide(popup_bg);
-        
-        // Clear existing content - using elm_box_clear instead of elm_box_content_get
-        elm_box_clear(popup_box);
-    }
+static void hide_popup(void *data, Evas_Object *obj, const Evas_Event_Mouse_Down *event) {
+    if (popup_box) evas_object_hide(popup_box);
+    if (popup_bg) evas_object_hide(popup_bg);
+    if (popup_box) elm_box_clear(popup_box);
     popup_visible = EINA_FALSE;
 }
 
-// Show shutdown/sleep/restart menu
 static void show_shutdown_menu(void *data, Evas_Object *obj, void *event_info) {
     if (popup_visible) {
-        hide_popup(NULL, NULL, NULL);
+        hide_popup(NULL, popup_bg, NULL);
         return;
     }
-    
     create_popup();
-    
-    // Clear existing content
     elm_box_clear(popup_box);
-    
-    // Create title
     Evas_Object *title = elm_label_add(popup_box);
     elm_object_text_set(title, "<b>System Menu</b>");
     evas_object_size_hint_weight_set(title, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(title, EVAS_HINT_FILL, 0.5);
     evas_object_show(title);
     elm_box_pack_end(popup_box, title);
-    
-    // Add separator
     Evas_Object *separator = elm_separator_add(popup_box);
     evas_object_size_hint_weight_set(separator, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(separator, EVAS_HINT_FILL, 0.5);
     evas_object_show(separator);
     elm_box_pack_end(popup_box, separator);
-    
-    // Create shutdown button
     Evas_Object *shutdown_btn = create_icon_button(popup_box, "system-shutdown", "Shutdown", shutdown_system);
     elm_box_pack_end(popup_box, shutdown_btn);
-    
-    // Create sleep button
     Evas_Object *sleep_btn = create_icon_button(popup_box, "system-suspend", "Sleep", sleep_system);
     elm_box_pack_end(popup_box, sleep_btn);
-    
-    // Create restart button
     Evas_Object *restart_btn = create_icon_button(popup_box, "system-reboot", "Restart", restart_system);
     elm_box_pack_end(popup_box, restart_btn);
-    
-    // Show popup
-    evas_object_show(popup_bg);
-    evas_object_show(popup_box);
-    popup_visible = EINA_TRUE;
 }
 
-// Show Wi-Fi settings
 static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info) {
     if (popup_visible) {
-        hide_popup(NULL, NULL, NULL);
+        hide_popup(NULL, popup_bg, NULL);
         return;
     }
-    
     create_popup();
-    
-    // Clear existing content
     elm_box_clear(popup_box);
-    
-    // Create title
     Evas_Object *title = elm_label_add(popup_box);
     elm_object_text_set(title, "<b>Wi-Fi Settings</b>");
     evas_object_size_hint_weight_set(title, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(title, EVAS_HINT_FILL, 0.5);
     evas_object_show(title);
     elm_box_pack_end(popup_box, title);
-    
-    // Add separator
     Evas_Object *separator = elm_separator_add(popup_box);
     evas_object_size_hint_weight_set(separator, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(separator, EVAS_HINT_FILL, 0.5);
     evas_object_show(separator);
     elm_box_pack_end(popup_box, separator);
-    
-    // Wi-Fi toggle
     Evas_Object *toggle_box = elm_box_add(popup_box);
     elm_box_horizontal_set(toggle_box, EINA_TRUE);
     evas_object_size_hint_weight_set(toggle_box, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(toggle_box, EVAS_HINT_FILL, 0.5);
-    
     Evas_Object *toggle_label = elm_label_add(toggle_box);
     elm_object_text_set(toggle_label, "Wi-Fi");
     evas_object_show(toggle_label);
     elm_box_pack_end(toggle_box, toggle_label);
-    
     Evas_Object *toggle = elm_check_add(toggle_box);
     elm_check_state_set(toggle, EINA_TRUE);
     evas_object_size_hint_align_set(toggle, 1.0, 0.5);
     evas_object_size_hint_weight_set(toggle, EVAS_HINT_EXPAND, 0.0);
     evas_object_show(toggle);
     elm_box_pack_end(toggle_box, toggle);
-    
     evas_object_show(toggle_box);
     elm_box_pack_end(popup_box, toggle_box);
-    
-    // Sample network list
     const char *networks[] = {"Home Network", "Office Wi-Fi", "Guest Network", "Neighbor's Wi-Fi"};
-    
     for (int i = 0; i < 4; i++) {
         Evas_Object *network_btn = elm_button_add(popup_box);
         elm_object_text_set(network_btn, networks[i]);
@@ -196,52 +152,35 @@ static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info) {
         evas_object_show(network_btn);
         elm_box_pack_end(popup_box, network_btn);
     }
-    
-    // Show popup
-    evas_object_show(popup_bg);
-    evas_object_show(popup_box);
-    popup_visible = EINA_TRUE;
 }
 
-// Show sound settings
 static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) {
     if (popup_visible) {
-        hide_popup(NULL, NULL, NULL);
+        hide_popup(NULL, popup_bg, NULL);
         return;
     }
-    
     create_popup();
-    
-    // Clear existing content
     elm_box_clear(popup_box);
-    
-    // Create title
     Evas_Object *title = elm_label_add(popup_box);
     elm_object_text_set(title, "<b>Sound Settings</b>");
     evas_object_size_hint_weight_set(title, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(title, EVAS_HINT_FILL, 0.5);
     evas_object_show(title);
     elm_box_pack_end(popup_box, title);
-    
-    // Add separator
     Evas_Object *separator = elm_separator_add(popup_box);
     evas_object_size_hint_weight_set(separator, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(separator, EVAS_HINT_FILL, 0.5);
     evas_object_show(separator);
     elm_box_pack_end(popup_box, separator);
-    
-    // Volume slider
     Evas_Object *volume_box = elm_box_add(popup_box);
     elm_box_horizontal_set(volume_box, EINA_TRUE);
     evas_object_size_hint_weight_set(volume_box, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(volume_box, EVAS_HINT_FILL, 0.5);
-    
     Evas_Object *volume_icon = elm_icon_add(volume_box);
     elm_icon_standard_set(volume_icon, "audio-volume-high");
     evas_object_size_hint_min_set(volume_icon, 24, 24);
     evas_object_show(volume_icon);
     elm_box_pack_end(volume_box, volume_icon);
-    
     Evas_Object *volume_slider = elm_slider_add(volume_box);
     elm_slider_horizontal_set(volume_slider, EINA_TRUE);
     elm_slider_min_max_set(volume_slider, 0, 100);
@@ -250,13 +189,9 @@ static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) 
     evas_object_size_hint_align_set(volume_slider, EVAS_HINT_FILL, 0.5);
     evas_object_show(volume_slider);
     elm_box_pack_end(volume_box, volume_slider);
-    
     evas_object_show(volume_box);
     elm_box_pack_end(popup_box, volume_box);
-    
-    // Sound profiles
     const char *profiles[] = {"Default", "Movie", "Music", "Voice", "Gaming"};
-    
     for (int i = 0; i < 5; i++) {
         Evas_Object *profile_btn = elm_button_add(popup_box);
         elm_object_text_set(profile_btn, profiles[i]);
@@ -265,52 +200,37 @@ static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) 
         evas_object_show(profile_btn);
         elm_box_pack_end(popup_box, profile_btn);
     }
-    
-    // Show popup
-    evas_object_show(popup_bg);
-    evas_object_show(popup_box);
-    popup_visible = EINA_TRUE;
 }
 
-// System actions (these would typically make system calls)
 static void shutdown_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System shutdown requested\n");
-    hide_popup(NULL, NULL, NULL);
-    // In a real application, you would call system("shutdown -h now") or similar
+    hide_popup(NULL, popup_bg, NULL);
+    ecore_system_run("shutdown -h now");
 }
 
 static void sleep_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System sleep requested\n");
-    hide_popup(NULL, NULL, NULL);
-    // In a real application, you would call system("systemctl suspend") or similar
+    hide_popup(NULL, popup_bg, NULL);
+    ecore_system_run("systemctl suspend");
 }
 
 static void restart_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System restart requested\n");
-    hide_popup(NULL, NULL, NULL);
-    // In a real application, you would call system("reboot") or similar
+    hide_popup(NULL, popup_bg, NULL);
+    ecore_system_run("reboot");
 }
 
 EAPI_MAIN int elm_main(int argc, char **argv) {
-    // elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_MAIN);
     win = elm_win_util_standard_add("desktop", "Desktop");
     elm_win_fullscreen_set(win, EINA_TRUE);
     evas_object_show(win);
-    
-    // Set up key handler for ESC
     elm_win_autodel_set(win, EINA_TRUE);
-    
-    // Add keyboard event handler using the correct function
-    // Instead of using evas_object_event_callback_add, use elm_win_keys_cb_set
     elm_win_keyboard_mode_set(win, ELM_WIN_KEYBOARD_ON);
     evas_object_smart_callback_add(win, "key,down", key_down_cb, NULL);
-    
     Evas_Object *bg = evas_object_rectangle_add(evas_object_evas_get(win));
     evas_object_color_set(bg, 255, 255, 255, 255);
     evas_object_resize(bg, 1920, 1080);
     evas_object_show(bg);
-    
-    // Panel container
     Evas_Object *panel = elm_box_add(win);
     elm_box_horizontal_set(panel, EINA_TRUE);
     evas_object_size_hint_weight_set(panel, EVAS_HINT_EXPAND, 0.0);
@@ -318,92 +238,5 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
     evas_object_resize(panel, 1920, 40);
     evas_object_move(panel, 0, 0);
     evas_object_show(panel);
-    
-    // Panel background (semi-transparent gray)
     Evas_Object *panel_bg = evas_object_rectangle_add(evas_object_evas_get(win));
-    evas_object_color_set(panel_bg, 68, 68, 68, 200);  // Semi-transparent gray
-    evas_object_move(panel_bg, 0, 0);
-    evas_object_resize(panel_bg, 1920, 40);
-    evas_object_show(panel_bg);
-    
-    // Left section
-    Evas_Object *left_box = elm_box_add(panel);
-    elm_box_horizontal_set(left_box, EINA_TRUE);
-    evas_object_size_hint_weight_set(left_box, EVAS_HINT_EXPAND, 0.0);
-    evas_object_size_hint_align_set(left_box, EVAS_HINT_FILL, 0.0);
-    evas_object_show(left_box);
-    elm_box_pack_end(panel, left_box);
-    
-    // Center section with clock
-    Evas_Object *center_box = elm_box_add(panel);
-    evas_object_size_hint_weight_set(center_box, 0.0, 0.0);
-    evas_object_size_hint_align_set(center_box, 0.5, 0.5);
-    evas_object_show(center_box);
-    elm_box_pack_end(panel, center_box);
-    
-    // Static clock (no timer update)
-    Evas_Object *clock_label = elm_label_add(center_box);
-    evas_object_size_hint_weight_set(clock_label, 0.0, 0.0);
-    evas_object_size_hint_align_set(clock_label, 0.5, 0.5);
-    
-    // Get the current time for the static display
-    time_t t = time(NULL);
-    struct tm *tm_info = localtime(&t);
-    char buffer[64];
-    strftime(buffer, sizeof(buffer), "%b %d %H:%M", tm_info);
-    elm_object_text_set(clock_label, buffer);
-    
-    evas_object_show(clock_label);
-    elm_box_pack_end(center_box, clock_label);
-    
-    // Right section with controls - now in a transparent container
-    Evas_Object *right_container = elm_frame_add(panel);
-    elm_object_style_set(right_container, "pad_small");
-    elm_object_text_set(right_container, NULL);
-    evas_object_color_set(right_container, 68, 68, 68, 200);  // Semi-transparent gray
-    evas_object_size_hint_weight_set(right_container, EVAS_HINT_EXPAND, 1.0);
-    evas_object_size_hint_align_set(right_container, 1.0, 0.5);  // Right align
-    evas_object_show(right_container);
-    elm_box_pack_end(panel, right_container);
-    
-    // Box inside right container
-    Evas_Object *right_box = elm_box_add(right_container);
-    elm_box_horizontal_set(right_box, EINA_TRUE);
-    evas_object_size_hint_weight_set(right_box, EVAS_HINT_EXPAND, 1.0);
-    evas_object_size_hint_align_set(right_box, EVAS_HINT_FILL, 0.5);
-    elm_box_padding_set(right_box, 5, 0);
-    evas_object_show(right_box);
-    elm_object_content_set(right_container, right_box);
-    
-    // Sound settings button
-    Evas_Object *sound_btn = elm_button_add(right_box);
-    Evas_Object *sound_icon = elm_icon_add(sound_btn);
-    elm_icon_standard_set(sound_icon, "audio-volume-medium");
-    elm_object_content_set(sound_btn, sound_icon);
-    evas_object_smart_callback_add(sound_btn, "clicked", show_sound_settings, NULL);
-    evas_object_show(sound_icon);
-    evas_object_show(sound_btn);
-    elm_box_pack_end(right_box, sound_btn);
-    
-    // Wi-Fi button
-    Evas_Object *wifi_btn = elm_button_add(right_box);
-    Evas_Object *wifi_icon = elm_icon_add(wifi_btn);
-    elm_icon_standard_set(wifi_icon, "network-wireless");
-    elm_object_content_set(wifi_btn, wifi_icon);
-    evas_object_smart_callback_add(wifi_btn, "clicked", show_wifi_settings, NULL);
-    evas_object_show(wifi_icon);
-    evas_object_show(wifi_btn);
-    elm_box_pack_end(right_box, wifi_btn);
-    
-    // Shutdown button with click handler
-    Evas_Object *shutdown_btn = elm_button_add(right_box);
-    elm_object_text_set(shutdown_btn, "⏻");
-    evas_object_smart_callback_add(shutdown_btn, "clicked", show_shutdown_menu, NULL);
-    evas_object_show(shutdown_btn);
-    elm_box_pack_end(right_box, shutdown_btn);
-    
-    elm_run();
-    elm_shutdown();
-    return 0;
-}
-ELM_MAIN()
+    evas_object_color_set(panel_bg, 68,
