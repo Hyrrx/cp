@@ -1,21 +1,25 @@
 #include <Elementary.h>
 #include <Ecore.h>
 #include <Ecore_Evas.h>
+#include <Ecore_Exe.h>
 #include <time.h>
 #include <string.h>
+#include <stdio.h>
 
 static Evas_Object *win;
 static Evas_Object *popup_bg;
 static Evas_Object *popup_box;
+static Evas_Object *time_label;
 static Eina_Bool popup_visible = EINA_FALSE;
 
 static void show_shutdown_menu(void *data, Evas_Object *obj, void *event_info);
 static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info);
 static void show_sound_settings(void *data, Evas_Object *obj, void *event_info);
-static void hide_popup(void *data, Evas_Object *obj, const Evas_Event_Mouse_Down *event);
+static void hide_popup(void *data, Evas_Object *obj, void *event_info);
 static void shutdown_system(void *data, Evas_Object *obj, void *event_info);
 static void sleep_system(void *data, Evas_Object *obj, void *event_info);
 static void restart_system(void *data, Evas_Object *obj, void *event_info);
+static Eina_Bool update_time_label(void *data);
 
 static void key_down_cb(void *data, Evas_Object *obj, void *event_info) {
     Evas_Event_Key_Down *ev = event_info;
@@ -32,19 +36,25 @@ static Evas_Object *create_icon_button(Evas_Object *parent, const char *icon, co
     Evas_Object *button = elm_button_add(parent);
     evas_object_size_hint_weight_set(button, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_size_hint_align_set(button, EVAS_HINT_FILL, EVAS_HINT_FILL);
+
     Evas_Object *box = elm_box_add(button);
     evas_object_size_hint_weight_set(box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_size_hint_align_set(box, EVAS_HINT_FILL, EVAS_HINT_FILL);
     elm_box_padding_set(box, 0, 5);
+
     Evas_Object *ic = elm_icon_add(box);
     elm_icon_standard_set(ic, icon);
     evas_object_size_hint_min_set(ic, 32, 32);
     evas_object_show(ic);
     elm_box_pack_end(box, ic);
-    Evas_Object *label = elm_label_add(box);
-    elm_object_text_set(label, label_text);
-    evas_object_show(label);
-    elm_box_pack_end(box, label);
+
+    if (label_text) {
+        Evas_Object *label = elm_label_add(box);
+        elm_object_text_set(label, label_text);
+        evas_object_show(label);
+        elm_box_pack_end(box, label);
+    }
+
     evas_object_show(box);
     elm_object_content_set(button, box);
     evas_object_smart_callback_add(button, "clicked", callback, NULL);
@@ -52,31 +62,43 @@ static Evas_Object *create_icon_button(Evas_Object *parent, const char *icon, co
     return button;
 }
 
+
 static void create_popup(void) {
     if (!popup_bg) {
         popup_bg = evas_object_rectangle_add(evas_object_evas_get(win));
         evas_object_color_set(popup_bg, 0, 0, 0, 100);
         evas_object_resize(popup_bg, 1920, 1080);
+        evas_object_layer_set(popup_bg, 100);
         evas_object_show(popup_bg);
-        evas_object_event_callback_add(popup_bg, EVAS_CALLBACK_MOUSE_DOWN, hide_popup, NULL);
+        evas_object_event_callback_add(popup_bg, EVAS_CALLBACK_MOUSE_DOWN, (Evas_Object_Event_Cb)hide_popup, NULL);
     } else {
         evas_object_show(popup_bg);
     }
+
     if (!popup_box) {
         popup_box = elm_box_add(win);
+        elm_box_padding_set(popup_box, 10, 10);
         evas_object_size_hint_weight_set(popup_box, 0.0, 0.0);
         evas_object_size_hint_align_set(popup_box, 0.5, 0.5);
-        evas_object_color_set(popup_box, 128, 128, 128, 200);
+
+        Evas_Object *rect = evas_object_rectangle_add(evas_object_evas_get(win));
+        evas_object_color_set(rect, 230, 230, 230, 220);
+        elm_object_style_set(popup_box, "shadow/material");
+        elm_object_content_set(popup_box, rect);
+
+
         evas_object_resize(popup_box, 300, 400);
-        evas_object_move(popup_box, 1920 - 320, 50);
+        evas_object_move(popup_box, 1920 - 320 - 10, 50);
+        evas_object_layer_set(popup_box, 101);
         evas_object_show(popup_box);
     } else {
+        elm_box_clear(popup_box);
         evas_object_show(popup_box);
     }
     popup_visible = EINA_TRUE;
 }
 
-static void hide_popup(void *data, Evas_Object *obj, const Evas_Event_Mouse_Down *event) {
+static void hide_popup(void *data, Evas_Object *obj, void *event_info) {
     if (popup_box) evas_object_hide(popup_box);
     if (popup_bg) evas_object_hide(popup_bg);
     if (popup_box) elm_box_clear(popup_box);
@@ -85,22 +107,23 @@ static void hide_popup(void *data, Evas_Object *obj, const Evas_Event_Mouse_Down
 
 static void show_shutdown_menu(void *data, Evas_Object *obj, void *event_info) {
     if (popup_visible) {
-        hide_popup(NULL, popup_bg, NULL);
-        return;
+        hide_popup(NULL, NULL, NULL);
     }
     create_popup();
-    elm_box_clear(popup_box);
+
     Evas_Object *title = elm_label_add(popup_box);
     elm_object_text_set(title, "<b>System Menu</b>");
     evas_object_size_hint_weight_set(title, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(title, EVAS_HINT_FILL, 0.5);
     evas_object_show(title);
     elm_box_pack_end(popup_box, title);
+
     Evas_Object *separator = elm_separator_add(popup_box);
     evas_object_size_hint_weight_set(separator, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(separator, EVAS_HINT_FILL, 0.5);
     evas_object_show(separator);
     elm_box_pack_end(popup_box, separator);
+
     Evas_Object *shutdown_btn = create_icon_button(popup_box, "system-shutdown", "Shutdown", shutdown_system);
     elm_box_pack_end(popup_box, shutdown_btn);
     Evas_Object *sleep_btn = create_icon_button(popup_box, "system-suspend", "Sleep", sleep_system);
@@ -111,30 +134,33 @@ static void show_shutdown_menu(void *data, Evas_Object *obj, void *event_info) {
 
 static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info) {
     if (popup_visible) {
-        hide_popup(NULL, popup_bg, NULL);
-        return;
+        hide_popup(NULL, NULL, NULL);
     }
     create_popup();
-    elm_box_clear(popup_box);
+
     Evas_Object *title = elm_label_add(popup_box);
     elm_object_text_set(title, "<b>Wi-Fi Settings</b>");
     evas_object_size_hint_weight_set(title, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(title, EVAS_HINT_FILL, 0.5);
     evas_object_show(title);
     elm_box_pack_end(popup_box, title);
+
     Evas_Object *separator = elm_separator_add(popup_box);
     evas_object_size_hint_weight_set(separator, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(separator, EVAS_HINT_FILL, 0.5);
     evas_object_show(separator);
     elm_box_pack_end(popup_box, separator);
+
     Evas_Object *toggle_box = elm_box_add(popup_box);
     elm_box_horizontal_set(toggle_box, EINA_TRUE);
     evas_object_size_hint_weight_set(toggle_box, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(toggle_box, EVAS_HINT_FILL, 0.5);
+
     Evas_Object *toggle_label = elm_label_add(toggle_box);
     elm_object_text_set(toggle_label, "Wi-Fi");
     evas_object_show(toggle_label);
     elm_box_pack_end(toggle_box, toggle_label);
+
     Evas_Object *toggle = elm_check_add(toggle_box);
     elm_check_state_set(toggle, EINA_TRUE);
     evas_object_size_hint_align_set(toggle, 1.0, 0.5);
@@ -143,8 +169,9 @@ static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info) {
     elm_box_pack_end(toggle_box, toggle);
     evas_object_show(toggle_box);
     elm_box_pack_end(popup_box, toggle_box);
+
     const char *networks[] = {"Home Network", "Office Wi-Fi", "Guest Network", "Neighbor's Wi-Fi"};
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < (sizeof(networks) / sizeof(networks[0])); i++) {
         Evas_Object *network_btn = elm_button_add(popup_box);
         elm_object_text_set(network_btn, networks[i]);
         evas_object_size_hint_weight_set(network_btn, EVAS_HINT_EXPAND, 0.0);
@@ -156,31 +183,34 @@ static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info) {
 
 static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) {
     if (popup_visible) {
-        hide_popup(NULL, popup_bg, NULL);
-        return;
+        hide_popup(NULL, NULL, NULL);
     }
     create_popup();
-    elm_box_clear(popup_box);
+
     Evas_Object *title = elm_label_add(popup_box);
     elm_object_text_set(title, "<b>Sound Settings</b>");
     evas_object_size_hint_weight_set(title, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(title, EVAS_HINT_FILL, 0.5);
     evas_object_show(title);
     elm_box_pack_end(popup_box, title);
+
     Evas_Object *separator = elm_separator_add(popup_box);
     evas_object_size_hint_weight_set(separator, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(separator, EVAS_HINT_FILL, 0.5);
     evas_object_show(separator);
     elm_box_pack_end(popup_box, separator);
+
     Evas_Object *volume_box = elm_box_add(popup_box);
     elm_box_horizontal_set(volume_box, EINA_TRUE);
     evas_object_size_hint_weight_set(volume_box, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(volume_box, EVAS_HINT_FILL, 0.5);
+
     Evas_Object *volume_icon = elm_icon_add(volume_box);
     elm_icon_standard_set(volume_icon, "audio-volume-high");
     evas_object_size_hint_min_set(volume_icon, 24, 24);
     evas_object_show(volume_icon);
     elm_box_pack_end(volume_box, volume_icon);
+
     Evas_Object *volume_slider = elm_slider_add(volume_box);
     elm_slider_horizontal_set(volume_slider, EINA_TRUE);
     elm_slider_min_max_set(volume_slider, 0, 100);
@@ -191,8 +221,9 @@ static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) 
     elm_box_pack_end(volume_box, volume_slider);
     evas_object_show(volume_box);
     elm_box_pack_end(popup_box, volume_box);
+
     const char *profiles[] = {"Default", "Movie", "Music", "Voice", "Gaming"};
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < (sizeof(profiles) / sizeof(profiles[0])); i++) {
         Evas_Object *profile_btn = elm_button_add(popup_box);
         elm_object_text_set(profile_btn, profiles[i]);
         evas_object_size_hint_weight_set(profile_btn, EVAS_HINT_EXPAND, 0.0);
@@ -204,39 +235,103 @@ static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) 
 
 static void shutdown_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System shutdown requested\n");
-    hide_popup(NULL, popup_bg, NULL);
-    ecore_system_run("shutdown -h now");
+    hide_popup(NULL, NULL, NULL);
+    ecore_exe_run("shutdown -h now", NULL);
 }
 
 static void sleep_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System sleep requested\n");
-    hide_popup(NULL, popup_bg, NULL);
-    ecore_system_run("systemctl suspend");
+    hide_popup(NULL, NULL, NULL);
+    ecore_exe_run("systemctl suspend", NULL);
 }
 
 static void restart_system(void *data, Evas_Object *obj, void *event_info) {
     printf("System restart requested\n");
-    hide_popup(NULL, popup_bg, NULL);
-    ecore_system_run("reboot");
+    hide_popup(NULL, NULL, NULL);
+    ecore_exe_run("reboot", NULL);
 }
 
+static Eina_Bool update_time_label(void *data) {
+    time_t current_time;
+    struct tm *local_time;
+    char time_str[128];
+
+    current_time = time(NULL);
+    local_time = localtime(&current_time);
+
+    strftime(time_str, sizeof(time_str), "%a %b %d, %H:%M:%S", local_time);
+    elm_object_text_set(time_label, time_str);
+
+    return ECORE_CALLBACK_RENEW;
+}
+
+
 EAPI_MAIN int elm_main(int argc, char **argv) {
+    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
+
     win = elm_win_util_standard_add("desktop", "Desktop");
     elm_win_fullscreen_set(win, EINA_TRUE);
-    evas_object_show(win);
     elm_win_autodel_set(win, EINA_TRUE);
     elm_win_keyboard_mode_set(win, ELM_WIN_KEYBOARD_ON);
-    evas_object_smart_callback_add(win, "key,down", key_down_cb, NULL);
+    evas_object_smart_callback_add(win, "key,down", (Evas_Smart_Cb)key_down_cb, NULL);
+    evas_object_show(win);
+
     Evas_Object *bg = evas_object_rectangle_add(evas_object_evas_get(win));
-    evas_object_color_set(bg, 255, 255, 255, 255);
+    evas_object_color_set(bg, 50, 50, 60, 255);
     evas_object_resize(bg, 1920, 1080);
     evas_object_show(bg);
+    elm_win_resize_object_add(win, bg);
+
+
+    Evas_Object *panel_bg = evas_object_rectangle_add(evas_object_evas_get(win));
+    evas_object_color_set(panel_bg, 68, 71, 90, 200);
+    evas_object_resize(panel_bg, 1920, 40);
+    evas_object_move(panel_bg, 0, 0);
+    evas_object_show(panel_bg);
+
+
     Evas_Object *panel = elm_box_add(win);
     elm_box_horizontal_set(panel, EINA_TRUE);
+    elm_box_padding_set(panel, 10, 0);
     evas_object_size_hint_weight_set(panel, EVAS_HINT_EXPAND, 0.0);
     evas_object_size_hint_align_set(panel, EVAS_HINT_FILL, 0.0);
     evas_object_resize(panel, 1920, 40);
     evas_object_move(panel, 0, 0);
     evas_object_show(panel);
-    Evas_Object *panel_bg = evas_object_rectangle_add(evas_object_evas_get(win));
-    evas_object_color_set(panel_bg, 68,
+
+
+    Evas_Object *app_menu_btn = create_icon_button(panel, "start-here", NULL, NULL);
+    elm_box_pack_start(panel, app_menu_btn);
+
+
+    Evas_Object *spacer = evas_object_rectangle_add(evas_object_evas_get(win));
+    evas_object_size_hint_weight_set(spacer, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_size_hint_align_set(spacer, EVAS_HINT_FILL, EVAS_HINT_FILL);
+    elm_box_pack_end(panel, spacer);
+    evas_object_show(spacer);
+
+
+    time_label = elm_label_add(panel);
+    elm_object_style_set(time_label, "marker");
+    evas_object_size_hint_align_set(time_label, EVAS_HINT_FILL, 0.5);
+    update_time_label(NULL);
+    elm_box_pack_end(panel, time_label);
+    evas_object_show(time_label);
+    ecore_timer_add(1.0, update_time_label, NULL);
+
+
+    Evas_Object *wifi_btn = create_icon_button(panel, "network-wireless", NULL, show_wifi_settings);
+    elm_box_pack_end(panel, wifi_btn);
+
+    Evas_Object *sound_btn = create_icon_button(panel, "audio-volume-medium", NULL, show_sound_settings);
+    elm_box_pack_end(panel, sound_btn);
+
+    Evas_Object *shutdown_btn = create_icon_button(panel, "system-shutdown", NULL, show_shutdown_menu);
+    elm_box_pack_end(panel, shutdown_btn);
+
+    elm_run();
+    elm_shutdown();
+
+    return 0;
+}
+ELM_MAIN()
