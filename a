@@ -1,10 +1,4 @@
-ls /usr/local/share/pkgconfig/elementary.pc
-ls /usr/local/share/pkgconfig/ecore-exe.pc
-ls /usr/local/lib/pkgconfig/elementary.pc
-ls /usr/local/lib/pkgconfig/ecore-exe.pc
-
-find /usr -name elementary.pc 2>/dev/null
-find /usr -name ecore-exe.pc 2>/dev/null
+export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
 
 #include <Elementary.h>
 #include <Ecore.h>
