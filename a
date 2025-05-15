@@ -18,7 +18,7 @@ static void shutdown_system(void *data, Evas_Object *obj, void *event_info);
 static void sleep_system(void *data, Evas_Object *obj, void *event_info);
 static void restart_system(void *data, Evas_Object *obj, void *event_info);
 
-// Handle ESC key to exit application
+// Handle ESC key to exit application - fixed signature to match expected callback type
 static void key_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info) {
     Evas_Event_Key_Down *ev = event_info;
     if (strcmp(ev->keyname, "Escape") == 0) {
@@ -86,7 +86,7 @@ static void hide_popup(void *data, Evas_Object *obj, void *event_info) {
         evas_object_hide(popup_box);
         evas_object_hide(popup_bg);
         
-        // Clear existing content - using elm_box_clear instead
+        // Clear existing content - using elm_box_clear instead of elm_box_content_get
         elm_box_clear(popup_box);
     }
     popup_visible = EINA_FALSE;
@@ -213,9 +213,7 @@ static void show_sound_settings(void *data, Evas_Object *obj, void *event_info) 
     create_popup();
     
     // Clear existing content
-    Evas_Object *content;
-    while ((content = elm_box_content_get(popup_box, 0)))
-        evas_object_del(content);
+    elm_box_clear(popup_box);
     
     // Create title
     Evas_Object *title = elm_label_add(popup_box);
@@ -299,8 +297,13 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
     elm_win_fullscreen_set(win, EINA_TRUE);
     evas_object_show(win);
     
-    // ESC ile çıkış callback'i
-    evas_object_event_callback_add(win, EVAS_CALLBACK_KEY_DOWN, key_down_cb, NULL);
+    // Set up key handler for ESC
+    elm_win_autodel_set(win, EINA_TRUE);
+    
+    // Add keyboard event handler using the correct function
+    // Instead of using evas_object_event_callback_add, use elm_win_keys_cb_set
+    elm_win_keyboard_mode_set(win, ELM_WIN_KEYBOARD_ON);
+    evas_object_smart_callback_add(win, "key,down", key_down_cb, NULL);
     
     Evas_Object *bg = evas_object_rectangle_add(evas_object_evas_get(win));
     evas_object_color_set(bg, 255, 255, 255, 255);
@@ -353,13 +356,24 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
     evas_object_show(clock_label);
     elm_box_pack_end(center_box, clock_label);
     
-    // Right section with controls
-    Evas_Object *right_box = elm_box_add(panel);
+    // Right section with controls - now in a transparent container
+    Evas_Object *right_container = elm_frame_add(panel);
+    elm_object_style_set(right_container, "pad_small");
+    elm_object_text_set(right_container, NULL);
+    evas_object_color_set(right_container, 68, 68, 68, 200);  // Semi-transparent gray
+    evas_object_size_hint_weight_set(right_container, EVAS_HINT_EXPAND, 1.0);
+    evas_object_size_hint_align_set(right_container, 1.0, 0.5);  // Right align
+    evas_object_show(right_container);
+    elm_box_pack_end(panel, right_container);
+    
+    // Box inside right container
+    Evas_Object *right_box = elm_box_add(right_container);
     elm_box_horizontal_set(right_box, EINA_TRUE);
-    evas_object_size_hint_weight_set(right_box, EVAS_HINT_EXPAND, 0.0);
-    evas_object_size_hint_align_set(right_box, 1.0, 0.5);  // Right align
+    evas_object_size_hint_weight_set(right_box, EVAS_HINT_EXPAND, 1.0);
+    evas_object_size_hint_align_set(right_box, EVAS_HINT_FILL, 0.5);
+    elm_box_padding_set(right_box, 5, 0);
     evas_object_show(right_box);
-    elm_box_pack_end(panel, right_box);
+    elm_object_content_set(right_container, right_box);
     
     // Sound settings button
     Evas_Object *sound_btn = elm_button_add(right_box);
