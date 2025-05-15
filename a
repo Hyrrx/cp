@@ -1,4 +1,10 @@
-sudo apt install build-essential pkg-config libelementary-dev librsvg2-dev libecore-dev libevas-dev libeina-dev
+ls /usr/local/share/pkgconfig/elementary.pc
+ls /usr/local/share/pkgconfig/ecore-exe.pc
+ls /usr/local/lib/pkgconfig/elementary.pc
+ls /usr/local/lib/pkgconfig/ecore-exe.pc
+
+find /usr -name elementary.pc 2>/dev/null
+find /usr -name ecore-exe.pc 2>/dev/null
 
 #include <Elementary.h>
 #include <Ecore.h>
