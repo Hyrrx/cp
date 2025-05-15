@@ -1,5 +1,3 @@
-export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
-
 #include <Elementary.h>
 #include <Ecore.h>
 #include <Ecore_Evas.h>
