@@ -19,16 +19,15 @@ static void sleep_system(void *data, Evas_Object *obj, void *event_info);
 static void restart_system(void *data, Evas_Object *obj, void *event_info);
 
 // Handle ESC key to exit application
-static Eina_Bool key_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info) {
+static void key_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info) {
     Evas_Event_Key_Down *ev = event_info;
     if (strcmp(ev->keyname, "Escape") == 0) {
         if (popup_visible) {
             hide_popup(NULL, NULL, NULL);
-            return EINA_TRUE;
+        } else {
+            elm_exit();
         }
-        elm_exit();
     }
-    return EINA_TRUE;
 }
 
 // Create a button with an icon and label
@@ -87,10 +86,8 @@ static void hide_popup(void *data, Evas_Object *obj, void *event_info) {
         evas_object_hide(popup_box);
         evas_object_hide(popup_bg);
         
-        // Clear existing content
-        Evas_Object *content;
-        while ((content = elm_box_content_get(popup_box, 0)))
-            evas_object_del(content);
+        // Clear existing content - using elm_box_clear instead
+        elm_box_clear(popup_box);
     }
     popup_visible = EINA_FALSE;
 }
@@ -105,9 +102,7 @@ static void show_shutdown_menu(void *data, Evas_Object *obj, void *event_info) {
     create_popup();
     
     // Clear existing content
-    Evas_Object *content;
-    while ((content = elm_box_content_get(popup_box, 0)))
-        evas_object_del(content);
+    elm_box_clear(popup_box);
     
     // Create title
     Evas_Object *title = elm_label_add(popup_box);
@@ -152,9 +147,7 @@ static void show_wifi_settings(void *data, Evas_Object *obj, void *event_info) {
     create_popup();
     
     // Clear existing content
-    Evas_Object *content;
-    while ((content = elm_box_content_get(popup_box, 0)))
-        evas_object_del(content);
+    elm_box_clear(popup_box);
     
     // Create title
     Evas_Object *title = elm_label_add(popup_box);
